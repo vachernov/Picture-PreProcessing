@@ -3,7 +3,9 @@ from PIL import Image, ImageFilter
 
 __autor__ = 'Valerii Chernov'
 
-debugModeOn = False
+debugModeOn = True
+
+makeSampleConf = True
 
 """ Some general stuff goes here """
 
@@ -12,7 +14,7 @@ canvas = []
 size = []
 dictToParse = {}
 
-pixelSize = 5
+corner = 5; # outside corner constant (https://stackoverflow.com/questions/42278777/image-index-out-of-range-pil)
 
 def myRange(start, end, step):
     while start <= end:
@@ -71,53 +73,64 @@ def create_sample_conf():
                                     }
 
                                 ],
-                            'height': 400,
-                            'width': 200,
-                            'brush': 20
+                            'height': 4,
+                            'width': 2,
+                            'brush': 0.02
                         }
 
-    json.dump(color_palette, open('sample_conf.json', 'w'))
+    json.dump(color_palette, open('sample_conf.json', 'w')) # save .json file
 
 def load_sample_conf():
-    with open('sample_conf.json', 'r') as myfile:
+    with open('sample_conf.json', 'r') as myfile: # open .json file
         raw_data=myfile.read().replace('\n', '')
 
-    data = json.loads(raw_data)
+    data = json.loads(raw_data) # load raw data from .json
 
-    print(raw_data)
-    print(data["version"])
+    if (debugModeOn):
+        print(raw_data) # debug stuff
+        print(data["version"])
 
-    palette = []
+    palette = [] # color palette parsing
     for color in range( len(data["colors"]) ):
         palette += [[ data["colors"][color]['R'], data["colors"][color]['G'], data["colors"][color]['B'] ]]
 
-    canvasDimentions = [data["width"], data["height"]]
+    canvasDimentions = [data["width"], data["height"]] # get canvas Dimentions
 
-    f = data["file"]
+    brush = data["brush"] # get brush size
 
-    return palette, canvasDimentions, f
+    f = data["file"] # get name of file with the picture to be drawed
+
+    return palette, canvasDimentions, brush, f
 
 def choseColor(r: int, g: int, b: int) -> int:
 
-    marker = []
+    marker = [] # create list of parameter that we want to minimize
 
-    for i in range( len(colors) ):
+    for i in range( len(colors) ): # calculating distances in color space from the point (r, g, b) to a points from color palette
         marker += [(r - colors[i][0]) ** 2 + (g - colors[i][1]) ** 2 + (b - colors[i][2]) ** 2]
 
-    id = marker.index(min(marker), 0, len(marker))
+    id = marker.index(min(marker), 0, len(marker)) # choose ID of the most simular color from our palette
 
     return id
 
+def compose(d: int,l: int,canvas: int) -> int:
+    alpha, beta = float (d/l), float(canvas[0] / canvas[1])
+
+    print(alpha, beta)
+
+    if (alpha == beta):
+        return 1
+    elif(alpha < beta):
+        return round(l/canvas[1])
+    else:
+        return round(d/canvas[0])
+
 def pixelatingPicture(img, pixelSize):
+
     img = img.resize((round(img.size[0] / pixelSize), round(img.size[1] / pixelSize)), Image.NEAREST)
     img = img.resize((img.size[0] * pixelSize, img.size[1] * pixelSize), Image.NEAREST)
 
     return img
-
-def addPoint(x: int, y: int, i: int) -> str:
-    #bullshit goes here
-
-    return "{ 'x': %(x)i, 'y': %(y)i, 'colorID': %(i)i }," % {"x": x, "y": y, "i": i}
 
 def exportData(step: int, w: int, h: int, pixels):
     dictToParse = {}
@@ -126,58 +139,58 @@ def exportData(step: int, w: int, h: int, pixels):
     dictToParse['paintingPoints'] = []
 
     for i in range(len(colors)):
-        for x in myRange(0, w, step):
-            for y in range(0, h, step):
-                #print(i, x, y)
-                #print(colors[i][0], colors[i][1], colors[i][2])
-                if pixels[x, y] == (colors[i][0], colors[i][1], colors[i][2]):
-                    dictToParse['paintingPoints'].append({
-                                                            'x':       x / w * canvas[0] + step/2, # convertation to Cm
-                                                            'y':       y / h * canvas[1] + step/2, # convertation to Cm
-                                                            'colorID': i
-                                                         })
+        for x in myRange(0, w - corner, step):
+            for y in range(0, h - corner, step):
+                dictToParse['paintingPoints'].append({
+                                                            'x': round(x / w * canvas[0] + step/2, 3), # convertation to m
+                                                            'y': round(y / h * canvas[1] + step/2, 3), # convertation to m
+                                                            'R': pixels[x, y][0],
+                                                            'G': pixels[x, y][1],
+                                                            'B': pixels[x, y][2]
+                                                     })
 
     if (debugModeOn):
         print(dictToParse) #debug stuff
 
     json.dump(dictToParse, open('out.json', 'w')) # json dump
 
+    print('Done')
+
 
 # --------------------------------------- #
 
-create_sample_conf() #debug stuff
+
+if (makeSampleConf):
+    create_sample_conf() #debug stuff
 
 """ Load environment data """
-colors, canvas, file = load_sample_conf()
+colors, canvas, brushSize, file = load_sample_conf()
 
 """ Load picture to be drawed """
 picture = Image.open(file)
 picSize = picture.size
 pixels = picture.load()
-#print(picture._getexif()) #debug stuff
 
 if (debugModeOn):
     picture.show() #debug stuff
     print()
 
 """ Pixelating """
+pixelSize = compose(picture.size[0]*brushSize, picture.size[1]*brushSize, canvas) # compose() function checks if
+                                                                                  # picture needs to be resized
 
-picture = pixelatingPicture(picture, pixelSize)
-
-print(picture.size)
+if (pixelSize != 0):
+    picture = pixelatingPicture(picture, pixelSize)
 
 if (debugModeOn):
     picture.show() #debug stuff
 
 """ Change colors of picture  """
 
-for x in range(picture.size[0]):
-    for y in range(picture.size[1]):
+for x in range(picture.size[0] - corner):
+    for y in range(picture.size[1] - corner):
         i = choseColor(pixels[x, y][0], pixels[x, y][1], pixels[x, y][2])
-        pixels[x, y] = (0, 0, 0) # (colors[i][0], colors[i][1], colors[i][2])
-
-if (debugModeOn):
-    picture.show() #debug stuff
+        pixels[x, y] = (colors[i][0], colors[i][1], colors[i][2])
 
 """ Export JSON file """
 
