@@ -141,12 +141,18 @@ def exportData(step: int, w: int, h: int, pixels):
     for i in range(len(colors)):
         for x in myRange(0, w - corner, step):
             for y in range(0, h - corner, step):
+                x_raw = x / w * canvas[0] + step/2; # convertation to m
+                y_raw = y / h * canvas[1] + step/2; # convertation to m
+
+                x_new = - (x_raw - canvas[0]/2); # transform coordinates
+                y_new = - (y_raw - canvas[1]/2); # transform coordinates
+
                 dictToParse['paintingPoints'].append({
-                                                            'x': round(x / w * canvas[0] + step/2, 3), # convertation to m
-                                                            'y': round(y / h * canvas[1] + step/2, 3), # convertation to m
-                                                            'R': pixels[x, y][0],
-                                                            'G': pixels[x, y][1],
-                                                            'B': pixels[x, y][2]
+                                                            'x': round(x_new, 3),
+                                                            'y': round(y_new, 3),
+                                                            'R': pixels[x_raw, y_raw][0],
+                                                            'G': pixels[x_raw, y_raw][1],
+                                                            'B': pixels[x_raw, y_raw][2]
                                                      })
 
     if (debugModeOn):
