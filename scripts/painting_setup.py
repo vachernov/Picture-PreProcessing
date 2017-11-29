@@ -1,18 +1,30 @@
+#!/usr/bin/env python2
+
 import json
 from PIL import Image, ImageFilter
+
+# ROS
+import rospy
+import rospkg
+from std_srvs.srv import Empty
+from kuka_cv.srv import *
 
 __autor__ = 'Valerii Chernov'
 
 debugModeOn = True
 
-makeSampleConf = True
+makeSampleConf = False
 
 """ Some general stuff goes here """
+
+rospack = rospkg.RosPack()
+packagePath = rospack.get_path('Picture-PreProcessing') + "/"
 
 colors = []
 canvas = []
 size = []
 dictToParse = {}
+start = False;      # Bool variable for starting the work of node
 
 corner = 5; # outside corner constant (https://stackoverflow.com/questions/42278777/image-index-out-of-range-pil)
 
@@ -78,10 +90,10 @@ def create_sample_conf():
                             'brush': 0.02
                         }
 
-    json.dump(color_palette, open('sample_conf.json', 'w')) # save .json file
+    json.dump(color_palette, open(packagePath + 'sample_conf.json', 'w')) # save .json file
 
 def load_sample_conf():
-    with open('sample_conf.json', 'r') as myfile: # open .json file
+    with open(packagePath + 'sample_conf.json', 'r') as myfile: # open .json file
         raw_data=myfile.read().replace('\n', '')
 
     data = json.loads(raw_data) # load raw data from .json
@@ -98,26 +110,28 @@ def load_sample_conf():
 
     brush = data["brush"] # get brush size
 
-    f = data["file"] # get name of file with the picture to be drawed
+    f = packagePath + data["file"] # get name of file with the picture to be drawed
 
-    return palette, canvasDimentions, brush, f
+    return brush, f
 
-def choseColor(r: int, g: int, b: int) -> int:
+def choseColor(r, g, b, colors):
 
     marker = [] # create list of parameter that we want to minimize
 
     for i in range( len(colors) ): # calculating distances in color space from the point (r, g, b) to a points from color palette
         marker += [(r - colors[i][0]) ** 2 + (g - colors[i][1]) ** 2 + (b - colors[i][2]) ** 2]
 
+    print(marker);
     id = marker.index(min(marker), 0, len(marker)) # choose ID of the most simular color from our palette
 
     return id
 
-def compose(d: int,l: int,canvas: int) -> int:
-    alpha, beta = float (d/l), float(canvas[0] / canvas[1])
+def compose(d,l,canvas):
+    alpha, beta = float (d/l), round(canvas[0] / canvas[1], 3)
 
     print(alpha, beta)
 
+    print("Canvas size: " + str([l, d]))
     if (alpha == beta):
         return 1
     elif(alpha < beta):
@@ -126,13 +140,13 @@ def compose(d: int,l: int,canvas: int) -> int:
         return round(d/canvas[0])
 
 def pixelatingPicture(img, pixelSize):
-
-    img = img.resize((round(img.size[0] / pixelSize), round(img.size[1] / pixelSize)), Image.NEAREST)
+    # print("Size: " + str([img.size[0], img.size[1]]))
+    img = img.resize((int(round(img.size[0] / pixelSize)), int(round(img.size[1] / pixelSize))), Image.NEAREST)
     img = img.resize((img.size[0] * pixelSize, img.size[1] * pixelSize), Image.NEAREST)
 
     return img
 
-def exportData(step: int, w: int, h: int, pixels):
+def exportData(step, w, h, pixels, colors, canvas):
     dictToParse = {}
 
     dictToParse['test'] = 'is done'
@@ -142,8 +156,8 @@ def exportData(step: int, w: int, h: int, pixels):
         for x in myRange(0, w - corner, step):
             for y in range(0, h - corner, step):
                 dictToParse['paintingPoints'].append({
-                                                            'x': round(x / w * canvas[0] + step/2, 3), # convertation to m
-                                                            'y': round(y / h * canvas[1] + step/2, 3), # convertation to m
+                                                            'x': round((2*x + step)/2 * canvas[0]/w, 3), # convertation to m
+                                                            'y': round((2*y + step)/2 * canvas[0]/w, 3), # convertation to m
                                                             'R': pixels[x, y][0],
                                                             'G': pixels[x, y][1],
                                                             'B': pixels[x, y][2]
@@ -152,46 +166,83 @@ def exportData(step: int, w: int, h: int, pixels):
     if (debugModeOn):
         print(dictToParse) #debug stuff
 
-    json.dump(dictToParse, open('out.json', 'w')) # json dump
+    json.dump(dictToParse, open(packagePath + 'out.json', 'w')) # json dump
 
     print('Done')
 
-
 # --------------------------------------- #
 
+# TODO organize Action Server
+""" Service Server for communication with LTP """
+def startPreprocessing(data):
 
-if (makeSampleConf):
-    create_sample_conf() #debug stuff
+    print("READ palette and canvas message")
+    colors = []
+    canvas = []
+    try:
+        # Get information about colours
+        clrResp = paletteClient()
+        for clr in clrResp.colours:
+            colors += [[ int(clr.bgr[2]), int(clr.bgr[1]), int(clr.bgr[0]) ]]
 
-""" Load environment data """
-colors, canvas, brushSize, file = load_sample_conf()
+        # Get information about canvas dimensions
+        cnvsResp = canvasCient()
+        canvas = [cnvsResp.width, cnvsResp.height]
+    except rospy.ServiceException, e:
+        print "Service call failed: %s"%e
 
-""" Load picture to be drawed """
-picture = Image.open(file)
-picSize = picture.size
-pixels = picture.load()
+    print("Palette COLORS: " + str(colors))
+    print("Canvas DIM: " + str(canvas))
+    print("==========================================")
 
-if (debugModeOn):
-    picture.show() #debug stuff
-    print()
+    # Start main image processing
+    main(colors, canvas)
 
-""" Pixelating """
-pixelSize = compose(picture.size[0]*brushSize, picture.size[1]*brushSize, canvas) # compose() function checks if
-                                                                                  # picture needs to be resized
+def main(colors, canvas):
+    if (makeSampleConf):
+        create_sample_conf() #debug stuff
 
-if (pixelSize != 0):
-    picture = pixelatingPicture(picture, pixelSize)
+    """ Load environment data """
+    brushSize, file = load_sample_conf()
 
-if (debugModeOn):
-    picture.show() #debug stuff
+    """ Load picture to be drawed """
+    picture = Image.open(file)
+    picSize = picture.size
+    pixels = picture.load()
 
-""" Change colors of picture  """
+    if (debugModeOn):
+        picture.show() #debug stuff
+        print()
 
-for x in range(picture.size[0] - corner):
-    for y in range(picture.size[1] - corner):
-        i = choseColor(pixels[x, y][0], pixels[x, y][1], pixels[x, y][2])
-        pixels[x, y] = (colors[i][0], colors[i][1], colors[i][2])
+    """ Pixelating """
+    pixelSize = compose(picture.size[0]*brushSize, picture.size[1]*brushSize, canvas) # compose() function checks if
+                                                                                      # picture needs to be resized
 
-""" Export JSON file """
+    if (pixelSize != 0):
+        picture = pixelatingPicture(picture, int(pixelSize))
 
-exportData(pixelSize, picture.size[0], picture.size[1], pixels)
+    if (debugModeOn):
+        picture.show() #debug stuff
+
+    """ Change colors of picture  """
+
+    for x in range(picture.size[0] - corner):
+        for y in range(picture.size[1] - corner):
+            i = choseColor(pixels[x, y][0], pixels[x, y][1], pixels[x, y][2], colors)
+            pixels[x, y] = (colors[i][0], colors[i][1], colors[i][2])
+
+    """ Export JSON file """
+
+    exportData(int(pixelSize), picture.size[0], picture.size[1], pixels, colors, canvas)
+
+if __name__ == '__main__':
+    rospy.init_node('image_preprocessor')
+
+    """ Start Servers and Clients """
+
+    imagePeprocessingService = rospy.Service("/start_image_preprocessing", Empty, startPreprocessing);
+    paletteClient = rospy.ServiceProxy('/request_palette', RequestPalette)
+    canvasCient = rospy.ServiceProxy('/request_canvas', RequestCanvas)
+    print("Waiting for Service.")
+    while not rospy.is_shutdown():
+        rospy.spin();
