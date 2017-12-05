@@ -6,7 +6,7 @@ from PIL import Image, ImageFilter
 # ROS
 import rospy
 import rospkg
-from std_srvs.srv import Empty
+from std_srvs.srv import Empty, EmptyResponse
 from kuka_cv.srv import *
 from kuka_cv.msg import *
 import time
@@ -207,6 +207,10 @@ def startPreprocessing(data):
 
     # Start main image processing
     main(colors, canvas)
+
+    resp = EmptyResponse()
+
+    return resp
 
 def sendImagePalette(data):
     while (len(imagePalette.colours) == 0 and not rospy.is_shutdown()):
