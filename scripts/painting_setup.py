@@ -8,6 +8,8 @@ import rospy
 import rospkg
 from std_srvs.srv import Empty
 from kuka_cv.srv import *
+from kuka_cv.msg import *
+import time
 
 __autor__ = 'Valerii Chernov'
 
@@ -19,6 +21,7 @@ makeSampleConf = False
 
 rospack = rospkg.RosPack()
 packagePath = rospack.get_path('Picture-PreProcessing') + "/"
+imagePalette = Palette()
 
 colors = []
 canvas = []
@@ -155,6 +158,12 @@ def exportData(step, w, h, pixels, colors, canvas):
     for i in range(len(colors)):
         for x in myRange(0, w - corner, step):
             for y in range(0, h - corner, step):
+                # Create message with position of pixel center and BGR colour
+                colourMsg = Colour()
+                colourMsg.position = [round((2*x + step)/2 * canvas[0]/w, 3), round((2*y + step)/2 * canvas[0]/w, 3), 0]
+                colourMsg.bgr = [pixels[x, y][2], pixels[x, y][1], pixels[x, y][0]]
+                imagePalette.colours.append(colourMsg)
+
                 dictToParse['paintingPoints'].append({
                                                             'x': round((2*x + step)/2 * canvas[0]/w, 3), # convertation to m
                                                             'y': round((2*y + step)/2 * canvas[0]/w, 3), # convertation to m
@@ -164,7 +173,8 @@ def exportData(step, w, h, pixels, colors, canvas):
                                                      })
 
     if (debugModeOn):
-        print(dictToParse) #debug stuff
+        # print(dictToParse) #debug stuff
+        print(imagePalette)
 
     json.dump(dictToParse, open(packagePath + 'out.json', 'w')) # json dump
 
@@ -197,6 +207,17 @@ def startPreprocessing(data):
 
     # Start main image processing
     main(colors, canvas)
+
+def sendImagePalette(data):
+    while (len(imagePalette.colours) == 0 and not rospy.is_shutdown()):
+        time.sleep(1)
+
+    if rospy.is_shutdown():
+        return False
+
+    resp = RequestPaletteResponse()
+    resp.colours = imagePalette.colours
+    return resp
 
 def main(colors, canvas):
     if (makeSampleConf):
@@ -240,7 +261,8 @@ if __name__ == '__main__':
 
     """ Start Servers and Clients """
 
-    imagePeprocessingService = rospy.Service("/start_image_preprocessing", Empty, startPreprocessing);
+    imagePeprocessingService = rospy.Service("/start_image_preprocessing", Empty, startPreprocessing)
+    sendImagePaletteService = rospy.Service("/request_image_palette", RequestPalette, sendImagePalette)
     paletteClient = rospy.ServiceProxy('/request_palette', RequestPalette)
     canvasCient = rospy.ServiceProxy('/request_canvas', RequestCanvas)
     print("Waiting for Service.")
