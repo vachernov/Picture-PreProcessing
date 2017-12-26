@@ -244,7 +244,7 @@ def main(colors, canvas):
         create_sample_conf() #debug stuff
 
     """ Load environment data """
-    brushSize, file = load_sample_conf()
+    colors, canvas, brushSize, file = load_sample_conf()
 
     """ Load picture to be drawed """
     picture = Image.open(file)
@@ -255,8 +255,8 @@ def main(colors, canvas):
         print()
 
     """ Pixelating """
-    pixelSize = compose(picture.size[0]*brushSize, picture.size[1]*brushSize, canvas) # compose() function checks if
-                                                                                      # picture needs to be resized
+    pixelSize = compose(picSize[0]*brushSize, picSize[1]*brushSize, canvas) # compose() function checks if
+                                                                            # picture needs to be resized
     print(pixelSize)
 
     if (pixelSize != (0, 0)):
@@ -282,7 +282,7 @@ def main(colors, canvas):
 
     """ Export JSON file """
 
-    exportData(pixelSize, picture.size[0], picture.size[1], pixels)
+    exportData(pixelSize, picSize[0], picSize[1], pixels)
 
 if __name__ == '__main__':
     rospy.init_node('image_preprocessor')
