@@ -142,7 +142,7 @@ def compose(d,l,canvas):
     else:
         return [int(canvas[0] * (canvas[1] / brushSize) / l), int(canvas[1] / brushSize)]
 
-def pixelatingPicture(img, pixelSize):
+def pixelatingPicture(img, Size):
     if (debugModeOn):
         print("Size A: " + str([img.size[0], img.size[1]]))
         print("Size B: " + str(Size))
