@@ -7,6 +7,10 @@ __autor__          = 'Valerii Chernov'
 __python_version__ = '2.7.10'
 __pil_version__    = '4.3.0'
 
+debugModeOn = True
+
+makeSampleConf = False
+
 # ROS
 import rospy
 import rospkg
@@ -149,7 +153,7 @@ def pixelatingPicture(img, Size):
 
     return img.resize(Size, Image.BILINEAR)
 
-def exportData(step, w, h, pixels, colors, canvas):
+def exportData(w, h, pixels, colors):
     dictToParse = {}
 
     dictToParse['test'] = 'is done'
@@ -159,34 +163,30 @@ def exportData(step, w, h, pixels, colors, canvas):
         for x in range(picture.size[0]):
             for y in range(picture.size[1]):
                 if (pixels[x, y] != fond):
-<<<<<<< HEAD:scripts/painting_setup.py
-                # Create message with position of pixel center and BGR colour
-                colourMsg = Colour()
-                colourMsg.position = [round(((2*x + step)/2) * canvas[0]/w, 3), round(((2*y + step)/2) * canvas[0]/w, 3), 0]
-                colourMsg.bgr = [pixels[x, y][2], pixels[x, y][1], pixels[x, y][0]]
-                imagePalette.colours.append(colourMsg)
+                <<<<<<< HEAD:scripts/painting_setup.py
 
-                dictToParse['paintingPoints'].append({
-                                                            'x': round((2*x + step)/2 * canvas[0]/w, 3), # convertation to m
-                                                            'y': round((2*y + step)/2 * canvas[0]/w, 3), # convertation to m
-                                                            'R': pixels[x, y][0],
-                                                            'G': pixels[x, y][1],
-                                                            'B': pixels[x, y][2]
-=======
-                x_raw = x / w * canvas[0] + step/2; # convertation to m
-                y_raw = y / h * canvas[1] + step/2; # convertation to m
+                x_raw = round(float(((2 * x + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
+                y_raw = round(float(((2 * y + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
 
-                x_new = - (x_raw - canvas[0]/2); # transform coordinates
-                y_new = - (y_raw - canvas[1]/2); # transform coordinates
+                x_new = - (x_raw - canvas[0] / 2);  # transform coordinates
+                y_new = - (y_raw - canvas[1] / 2);  # transform coordinates
 
                 dictToParse['paintingPoints'].append({
                                                             'x': round(x_new, 3),
                                                             'y': round(y_new, 3),
-                                                            'R': pixels[x_raw, y_raw][0],
-                                                            'G': pixels[x_raw, y_raw][1],
-                                                            'B': pixels[x_raw, y_raw][2]
->>>>>>> master:painting_setup.py
+                                                            'R': pixels[x, y][0],
+                                                            'G': pixels[x, y][1],
+                                                            'B': pixels[x, y][2]
+
                                                      })
+
+                # Create message with position of pixel center and BGR colour
+                colourMsg = Colour()
+                colourMsg.position = [x_new, y_new, 0]
+                colourMsg.bgr = [pixels[x, y][2], pixels[x, y][1], pixels[x, y][0]]
+                imagePalette.colours.append(colourMsg)
+
+                >>>>>>> master:painting_setup.py
 
     if (debugModeOn):
         # print(dictToParse) #debug stuff
@@ -282,7 +282,7 @@ def main(colors, canvas):
 
     """ Export JSON file """
 
-    exportData(pixelSize, picSize[0], picSize[1], pixels)
+    exportData(picSize[0], picSize[1], pixels)
 
 if __name__ == '__main__':
     rospy.init_node('image_preprocessor')
