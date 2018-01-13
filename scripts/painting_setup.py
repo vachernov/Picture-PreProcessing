@@ -27,6 +27,8 @@ start = False;      # Bool variable for starting the work of node
 
 """ Some general stuff goes here """
 
+brushSize
+
 colors = []
 canvas = []
 size = []
@@ -163,30 +165,26 @@ def exportData(w, h, pixels, colors):
         for x in range(picture.size[0]):
             for y in range(picture.size[1]):
                 if (pixels[x, y] != fond):
-                <<<<<<< HEAD:scripts/painting_setup.py
+                    x_raw = round(float(((2 * x + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
+                    y_raw = round(float(((2 * y + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
 
-                x_raw = round(float(((2 * x + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
-                y_raw = round(float(((2 * y + brushSize) / 2) * canvas[0]) / w, 3);  # convertation to pixels
+                    x_new = - (x_raw - canvas[0] / 2);  # transform coordinates
+                    y_new = - (y_raw - canvas[1] / 2);  # transform coordinates
 
-                x_new = - (x_raw - canvas[0] / 2);  # transform coordinates
-                y_new = - (y_raw - canvas[1] / 2);  # transform coordinates
+                    dictToParse['paintingPoints'].append({
+                                                                'x': round(x_new, 3),
+                                                                'y': round(y_new, 3),
+                                                                'R': pixels[x, y][0],
+                                                                'G': pixels[x, y][1],
+                                                                'B': pixels[x, y][2]
 
-                dictToParse['paintingPoints'].append({
-                                                            'x': round(x_new, 3),
-                                                            'y': round(y_new, 3),
-                                                            'R': pixels[x, y][0],
-                                                            'G': pixels[x, y][1],
-                                                            'B': pixels[x, y][2]
+                                                         })
 
-                                                     })
-
-                # Create message with position of pixel center and BGR colour
-                colourMsg = Colour()
-                colourMsg.position = [x_new, y_new, 0]
-                colourMsg.bgr = [pixels[x, y][2], pixels[x, y][1], pixels[x, y][0]]
-                imagePalette.colours.append(colourMsg)
-
-                >>>>>>> master:painting_setup.py
+                    # Create message with position of pixel center and BGR colour
+                    colourMsg = Colour()
+                    colourMsg.position = [x_new, y_new, 0]
+                    colourMsg.bgr = [pixels[x, y][2], pixels[x, y][1], pixels[x, y][0]]
+                    imagePalette.colours.append(colourMsg)
 
     if (debugModeOn):
         # print(dictToParse) #debug stuff
@@ -271,7 +269,6 @@ def main(colors, canvas):
 
     for x in range(picture.size[0]):
         for y in range(picture.size[1]):
-            #print(pixels[x, y])
             if (pixels[x, y] != fond):
                 i = choseColor(pixels[x, y][0], pixels[x, y][1], pixels[x, y][2])
                 pixels[x, y] = (colors[i][0], colors[i][1], colors[i][2])
