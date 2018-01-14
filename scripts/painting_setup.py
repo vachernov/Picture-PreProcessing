@@ -156,6 +156,8 @@ def pixelatingPicture(img, Size):
     return img.resize(Size, Image.BILINEAR)
 
 def exportData(w, h, pixels, colors):
+    print("brushSize in export(): ", brushSize)
+
     dictToParse = {}
 
     dictToParse['test'] = 'is done'
@@ -276,7 +278,7 @@ def main(colors, canvas):
     if (debugModeOn):
         picture.show() #debug stuff
         print("Colors has changed!")
-
+        print("brushSize in main: ", brushSize)
     """ Export JSON file """
 
     exportData(picSize[0], picSize[1], pixels)
