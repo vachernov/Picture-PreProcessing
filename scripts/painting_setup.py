@@ -27,7 +27,7 @@ start = False;      # Bool variable for starting the work of node
 
 """ Some general stuff goes here """
 
-brushSize
+brushSize = 1
 
 colors = []
 canvas = []
